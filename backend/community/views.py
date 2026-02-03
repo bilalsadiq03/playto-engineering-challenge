@@ -1,6 +1,8 @@
 from django.shortcuts import render
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
+from rest_framework.permissions import  AllowAny
+from rest_framework.authentication import BasicAuthentication
 from .serializers import UserSerializer
 from django.db.models import Count, Sum
 from .models import Posts, Comment, Like, KarmaTransaction
@@ -9,8 +11,33 @@ from rest_framework import status
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from datetime import timedelta
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth import authenticate, login
 
 # Create your views here.
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([BasicAuthentication])
+def login_view(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    user = authenticate(request, username=username, password=password)
+
+    if user is None:
+        return Response(
+            {"detail": "Invalid credentials"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    login(request, user)
+    return Response(
+        {"detail": "Login successful"},
+        status=status.HTTP_200_OK
+        )
+
+
 @api_view(['GET'])
 def me(request):
     serializer = UserSerializer(request.user)
@@ -124,12 +151,24 @@ def like_comment(request, comment_id):
 def leaderboard(request):
     since = timezone.now() - timezone.timedelta(hours=24)
 
-    top_users = (
+    qs = (
         KarmaTransaction.objects
         .filter(created_at__gte=since)
-        .values('user__id', 'user__username')
-        .annotate(total_points=Sum('points'))
-        .order_by('-total_points')[:5]
+        .values("user__username")
+        .annotate(karma=Sum("points"))
+        .order_by("-karma")[:5]
     )
 
-    return Response(top_users)
+    leaders = []
+    for idx, row in enumerate(qs, start=1):
+        leaders.append({
+            "rank": idx,
+            "username": row["user__username"],
+            "karma": row["karma"],
+        })
+
+    return Response({
+        "window": "last_24_hours",
+        "generated_at": timezone.now(),
+        "leaders": leaders,
+    })
