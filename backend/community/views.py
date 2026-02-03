@@ -15,27 +15,32 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login
 
 # Create your views here.
-@csrf_exempt
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([AllowAny])
-@authentication_classes([BasicAuthentication])
 def login_view(request):
-    username = request.data.get('username')
-    password = request.data.get('password')
+    username = request.data.get("username")
+    password = request.data.get("password")
 
-    user = authenticate(request, username=username, password=password)
+    if not username or not password:
+        return Response(
+            {"detail": "Username and password required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    user = authenticate(username=username, password=password)
 
     if user is None:
         return Response(
             {"detail": "Invalid credentials"},
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_401_UNAUTHORIZED
         )
 
     login(request, user)
+
     return Response(
         {"detail": "Login successful"},
         status=status.HTTP_200_OK
-        )
+    )
 
 
 @api_view(['GET'])
