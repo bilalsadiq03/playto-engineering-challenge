@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import Posts
+from .models import Posts, Comment
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -18,3 +18,14 @@ class PostSerializer(serializers.ModelSerializer):
 
     def get_like_count(self, obj):
         return 0
+
+class CommentSerializer(serializers.ModelSerializer):
+    author = serializers.CharField(source='author.username', read_only=True)
+    children = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Comment
+        fields = ['id', 'post', 'author', 'content', 'created_at', 'children']
+    
+    def get_children(self, obj):
+        return []
