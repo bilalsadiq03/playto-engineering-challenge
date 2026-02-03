@@ -2,11 +2,13 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .serializers import UserSerializer
-from django.db.models import Count
+from django.db.models import Count, Sum
 from .models import Posts, Comment, Like, KarmaTransaction
 from .serializers import PostSerializer, CommentSerializer
 from rest_framework import status
 from django.db import IntegrityError, transaction
+from django.utils import timezone
+from datetime import timedelta
 
 # Create your views here.
 @api_view(['GET'])
@@ -117,3 +119,17 @@ def like_comment(request, comment_id):
             {"error": "You have already liked this comment."},
             status=status.HTTP_400_BAD_REQUEST
         )
+    
+@api_view(['POST'])
+def leaderboard(request):
+    since = timezone.now() - timezone.timedelta(hours=24)
+
+    top_users = (
+        KarmaTransaction.objects
+        .filter(created_at__gte=since)
+        .values('user__id', 'user__username')
+        .annotate(total_points=Sum('points'))
+        .order_by('-total_points')[:5]
+    )
+
+    return Response(top_users)
