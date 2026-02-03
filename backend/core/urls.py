@@ -23,7 +23,7 @@ def health(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', health)
+    path('', health),
     path('api-auth/',include("rest_framework.urls")),
     path('api/', include('community.urls')),
 ]
