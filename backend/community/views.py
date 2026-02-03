@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.permissions import  AllowAny
 from rest_framework.authentication import BasicAuthentication
@@ -39,9 +39,67 @@ def login_view(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def me(request):
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
+
+@api_view(["POST"])
+def create_post(request):
+    content = request.data.get("content")
+
+    if not content or not content.strip():
+        return Response(
+            {"error": "Content is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    post = Posts.objects.create(
+        author=request.user,
+        content=content
+    )
+
+    serializer = PostSerializer(post)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+@api_view(["POST"])
+def create_comment(request, post_id):
+    content = request.data.get("content")
+    parent_id = request.data.get("parent")
+
+    if not content or not content.strip():
+        return Response(
+            {"error": "Content is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        post = Posts.objects.get(id=post_id)
+    except Posts.DoesNotExist:
+        return Response(
+            {"error": "Post not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    parent = None
+    if parent_id:
+        try:
+            parent = Comment.objects.get(id=parent_id)
+        except Comment.DoesNotExist:
+            return Response(
+                {"error": "Parent comment not found"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    comment = Comment.objects.create(
+        post=post,
+        author=request.user,
+        content=content,
+        parent=parent
+    )
+
+    serializer = CommentSerializer(comment)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])
